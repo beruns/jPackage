@@ -39,9 +39,10 @@ var myPackage = jPackage("name.spaced.myPackage");
 
 ```
 
-Example Package (/packages/namespace/examaple.js):
+Package Example:
 
 ```
+[File: /packages/namespace/example.jPackage]
 jPackage({
 	name: "namespace.example", // Package Name. Must matched the name of the requested package
 	author: "AUTHOR", // Optional 
@@ -53,5 +54,16 @@ jPackage({
 		
 	}
 });
+
+[File: /index.html]
+
+<script language='javascript' src='jPackage.js'></script>
+
+jPackage.config({
+	path: '/packages',
+	suffix: 'jPackage'
+});
+
+var p = jPackage("namespace.example"); // <- loads namespace.example, namespace.example2 and namespace.example3
 
 ```
