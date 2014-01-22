@@ -7,6 +7,7 @@
 	/* Loaded Packages */
 	var pkgs = {};
 	var rewriteHandlers = [], errors = [];
+	var currPath = null;
 	
 	/* TODO: cross browser */
 	var xml = new XMLHttpRequest();
@@ -44,7 +45,8 @@
 		this.script.src = this.path;
 
 		document.head.appendChild(this.script);
-		
+	
+		return this;	
 	}
 
 	/**
@@ -55,6 +57,9 @@
 	 */
 	var compile = function(path, pkg) {
 
+		currPath = path;
+		var ret = true;
+
 		try {
 
 			/* Compile Package */
@@ -63,11 +68,12 @@
 		} catch(e) {
 
 			errors.push(new jPackageError(path, "Failed to compile '" + path + "'", e));
-			return false;
+			ret = false;
 
 		}
 		
-		return true;
+		currPath = null;
+		return ret;
 	};
 
 	
@@ -146,9 +152,56 @@
 
 			return pkgs[pkg] || null;
 
-		} else { /* Register jPackage*/
+		} else if(typeof pkg == 'object') { /* Register jPackage*/
 
-			console.log(pkg);
+			/* We need a name so we can store it */
+			if(!pkg["name"]) return;
+
+			/* If package has prerequisites, try to fetch them first*/
+			if("requires" in pkg && typeof pkg.requires == 'object' && pkg.requires instanceof Array) {
+
+				for(var i = 0; i < pkg.requires.length; ++i) {
+
+					var skip = false;
+
+					/* a requirement that looks like this package? is skippable (not really required, but preffered to be loaded before the package */
+					var r = pkg.requires[i].replace(/\s*\?/, function() {
+
+						skip = true;
+						return "";
+
+					});
+
+					/* Package could not be loaded and is not skippable */
+					if(!jPackage(r) && !skip) {
+						errors.push(new jPackageError(currPath, "Failed to load required package '" + r + "' for Package '" + pkg.name + "'", null));
+						return;
+					}
+
+				}
+
+				
+					
+			}
+
+			/* If Package provides an init function */
+			if("init" in pkg && typeof pkg.init == 'function') {
+
+				try {
+					/* Try to call it */
+					pkg.init.call(pkg);
+					/* and set pkg.init to true so it cannot be init'd twice and the user can test for successfull initialisation */
+					pkg.init = true;
+				} catch(e) {
+					
+					/* Might be a syntax error in pkg.init(). Don't register Package */
+					errors.push(new jPackageError(currPath, "Failed to init '" + pkg.name + "'", e));
+					return;
+				}
+			}
+
+			/* Register Package */
+			pkgs[pkg.name] = pkg;
 
 		}
 	};
@@ -160,6 +213,7 @@
 	jPackage.registerRewriteHandler = function(handler) {
 
 		if(rewriteHandlers.indexOf(handler) < 0) rewriteHandlers.push(handler);
+		return this;
 
 	};
 
@@ -168,21 +222,28 @@
 	 * @param options Object of options to be set
 	 */
 	jPackage.config = function(options) {
+
 		for(o in options) {
 			params[o] = options[o];
 		}
+	
+		return this;
 	}
 
 	/**
 	 * Seal jPackage
-	 * After configuring and registering all rewriteHandlers, jPackage can be sealed, so no script loaded later on can manipulate the loading process
+	 * After configuring and registering all rewriteHandlers, jPackage can be sealed, so no script loaded later on can manipulate for example the path, or rewrite any url
 	 */
 	jPackage.seal = function() {
+
 		jPackage.registerRewriteHandler = Function.prototype;
 		jPackage.config = Function.prototype;
+	
+		return this;
+
 	}
 
-	/* Register main RewriteHandler will rewrite package a.b.c to [params.path]/a/b/c.[params.suffix] */
+	/* Register main RewriteHandler. Will rewrite package a.b.c to [params.path]/a/b/c.[params.suffix] */
 	jPackage.registerRewriteHandler(function(path, pkg, suffix) {
 
 		pkg = pkg.replace(/\./g, "/");
