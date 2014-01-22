@@ -39,3 +39,19 @@ var myPackage = jPackage("name.spaced.myPackage");
 
 ```
 
+Example Package (/packages/namespace/examaple.js):
+
+```
+jPackage({
+	name: "namespace.example", // Package Name. Must matched the name of the requested package
+	author: "AUTHOR", // Optional 
+	license: "LICENSE", // Optional 
+	requires: ["namespace.example2", "namespace.example3"] // All required packages are tried to be loaded before the package is loaded.
+	init: function() { // This is called upon load. 'this' var point to the package itself. so you can add datastructures here or something like that
+
+		this.namespace = {};
+		
+	}
+});
+
+```
